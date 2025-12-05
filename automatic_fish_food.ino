@@ -178,7 +178,7 @@ void loop() {
   // ------ Mengecek apakah waktu schedule sama dengan waktu sekarang ini ------
   for (int i = 0; i < scheduleCount; i++) {
     if (now == schedules[i].time) {
-      sendLog("Waktu sesuai, membuka servo di pukul " + now);
+      sendLog("Waktu sesuai, membuka nrvo di pukul " + now);
       runServo(schedules[i].interval);
       delay(60000); // Delay 1 menit supaya tidak terulang lagi di menit yang sama, meskipun berbeda detik
     }
