@@ -19,7 +19,7 @@ Perangkat dapat:
 - ESP8266 NodeMCU
 - NodeMCU Base v1.0
 - Servo SG90
-- Power Supply 9V 2A (disarankan 5V 2A)
+- Power Supply 9V 2A
 - Kabel Jumper
 
 <details>
