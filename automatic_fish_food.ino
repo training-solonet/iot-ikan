@@ -182,7 +182,7 @@ void fetchSchedule() {
   // ============================================================
   //               LOG DEBUG AKHIR (DIPINDAH KE BAWAH)
   // ============================================================
-  // sendLog("=== RESPONS SERVER ===");
+  sendLog("=== RESPONS SERVER ===");
   // sendLog("STATUS: " + statusLine);
   // sendLog("HEADERS:\n" + headers);
   // sendLog("RAW BODY:\n" + rawBody);
