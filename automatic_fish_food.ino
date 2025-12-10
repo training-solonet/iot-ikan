@@ -34,7 +34,7 @@ int scheduleCount = 0;
 
 // Pendefinisian variabel lastFetch dan interval setiap fetch data
 unsigned long lastFetch = 0;
-unsigned long fetchInterval = 5 * 60 * 1000; // 5 menit
+unsigned long fetchInterval = 2 * 60 * 60 * 1000; // 2 jam
 
 // ================== Function untuk mengirim log ==================
 void sendLog(String msg) {
@@ -66,38 +66,86 @@ void fetchSchedule() {
   WiFiClientSecure client;
   client.setInsecure();
 
-  sendLog("Mengambil informasi jadwal..."); // Mengirimkan log bahwa device meng-fetch data
+  sendLog("Mengambil informasi jadwal...");
 
-  // Jika gagal, maka akan di print di serial monitor
   if (!client.connect(host, httpsPort)) {
-    Serial.println("Koneksi gagal!");
+    sendLog("Koneksi gagal ke server!");
     return;
   }
 
+  // Kirim GET request
   client.print(String("GET ") + endpoint + " HTTP/1.1\r\n" +
                "Host: " + host + "\r\n" +
                "User-Agent: ESP8266\r\n" +
                "Connection: close\r\n\r\n");
 
-  String payload;
-  while (client.available() == 0) delay(100);
-
-  while (client.available()) {
-    payload += client.readStringUntil('\n');
+  // Tunggu respons
+  unsigned long timeout = millis();
+  while (client.available() == 0) {
+    if (millis() - timeout > 5000) { 
+      sendLog("Timeout: Tidak ada respons dari server");
+      client.stop();
+      return;
+    }
   }
 
+  // ====== Ambil Status Line ======
+  String statusLine = client.readStringUntil('\n');
+
+  // ====== Ambil Header ======
+  String line = "";
+  String headers = "";
+  while (client.connected()) {
+    line = client.readStringUntil('\n');
+    if (line == "\r" || line.length() == 0) break;
+    headers += line + "\n";
+  }
+
+  // ====== Ambil Raw Body ======
+  delay(100);
+  String rawBody = "";
+  while (client.available()) {
+    rawBody += client.readString();
+  }
   client.stop();
-  delay(500);
 
-  // Proses JSON
-  int jsonIndex = payload.indexOf('[');
-  if (jsonIndex < 0) return;
+  // Jika body kosong
+  if (rawBody.length() == 0) {
+    sendLog("Body kosong dari server.");
+    return;
+  }
 
-  String jsonString = payload.substring(jsonIndex);
-  DynamicJsonDocument doc(1024);
-  deserializeJson(doc, jsonString);
+  // ====== Bersihkan menjadi JSON murni ======
+  String json = "";
+  int lastBracket = rawBody.lastIndexOf(']');
+  if (lastBracket != -1) {
+    for (int i = lastBracket; i >= 0; i--) {
+      if (rawBody[i] == '[') {
+        String candidate = rawBody.substring(i, lastBracket + 1);
+        if (candidate.indexOf("\"time\"") != -1) {
+          json = candidate;
+          break;
+        }
+      }
+    }
+  }
 
-  // Simpan jadwal lama & bandingkan
+  if (json.length() == 0) {
+    sendLog("Gagal menemukan JSON dalam respons.");
+    return;
+  }
+
+  // ====== PARSE JSON ======
+  DynamicJsonDocument doc(4096);
+  DeserializationError error = deserializeJson(doc, json);
+
+  if (error) {
+    sendLog("JSON Parsing Error: " + String(error.f_str()));
+    sendLog("JSON gagal: " + json);
+    return;
+  }
+
+  // Simpan dan bandingkan jadwal
   Schedule oldSchedules[10];
   int oldCount = scheduleCount;
   for (int i = 0; i < oldCount; i++) {
@@ -110,11 +158,9 @@ void fetchSchedule() {
     schedules[i].interval = doc[i]["interval"].as<int>();
   }
 
-  // Membandingkan jadwal lama dan hasil fetch
   bool changed = false;
-  if (oldCount != scheduleCount) {
-    changed = true;
-  } else {
+  if (oldCount != scheduleCount) changed = true;
+  else {
     for (int i = 0; i < scheduleCount; i++) {
       if (schedules[i].time != oldSchedules[i].time ||
           schedules[i].interval != oldSchedules[i].interval) {
@@ -125,9 +171,25 @@ void fetchSchedule() {
   }
 
   if (changed) {
-    sendLog("Jadwal diupdate!");  // Mengirim log bahwa jadwal berhasil diupdate
+    sendLog("Jadwal diperbarui:");
+    for (int i = 0; i < scheduleCount; i++) {
+      sendLog("Time: " + schedules[i].time +
+              " | Interval: " + String(schedules[i].interval));
+      delay(1000);
+    }
   }
+
+  // ============================================================
+  //               LOG DEBUG AKHIR (DIPINDAH KE BAWAH)
+  // ============================================================
+  // sendLog("=== RESPONS SERVER ===");
+  // sendLog("STATUS: " + statusLine);
+  // sendLog("HEADERS:\n" + headers);
+  // sendLog("RAW BODY:\n" + rawBody);
+  // sendLog("JSON MURNI:\n" + json);
+  sendLog("=== END DEBUG ===");
 }
+
 
 // =========== Fungsi untuk menjalankan servo ==============
 void runServo(int duration) {
@@ -178,7 +240,7 @@ void loop() {
   // ------ Mengecek apakah waktu schedule sama dengan waktu sekarang ini ------
   for (int i = 0; i < scheduleCount; i++) {
     if (now == schedules[i].time) {
-      sendLog("Waktu sesuai, membuka nrvo di pukul " + now);
+      sendLog("Waktu sesuai, membuka servo di pukul " + now);
       runServo(schedules[i].interval);
       delay(60000); // Delay 1 menit supaya tidak terulang lagi di menit yang sama, meskipun berbeda detik
     }
