@@ -25,7 +25,7 @@ Perangkat dapat:
 <details>
 <summary><h2>🏠 Arsitektur Sistem</h2></summary>
 
-<img width="621" height="470" alt="Struktur-IoT-Ikan drawio (1)" src="https://github.com/user-attachments/assets/fe86c772-2e54-4383-a8b7-b6cd88b81a36" />
+<img width="3000" height="1980" alt="circuit_image" src="https://github.com/user-attachments/assets/e0efaf18-0cc0-4b79-9895-8cb5a8812329" />
 </details>
 
 <details>
